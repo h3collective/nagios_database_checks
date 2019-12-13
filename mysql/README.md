@@ -14,6 +14,7 @@ Installation
 A modified version of these plugins come installed by default on Nagios XI.
 
 If you're using Nagios Core, do the following:
+
 0. Make sure python3, epel, pip, and pymssql are installed.
 
 1. Download this project as a .zip onto your Core installation.
