@@ -68,8 +68,11 @@ Please see the file at [CONTRIBUTORS](CONTRIBUTORS.md) for a full list of author
 and maintainers.
 
 
-Current Version
+Versions
 ---------------
+The legacy Perl check  can be found at:
+
+  https://labs.consol.de/nagios/check_mysql_health/#description
 
 The current version of these scripts can be found at:
 
