@@ -4,13 +4,14 @@ test for opensource repository
 
 ======================
 
-check_mssql_collection is a set of Nagios plugins for checking the status of a
-Microsoft SQL Server.
+check_mysql_collection is a set of Nagios plugins for checking the status of a
+
+MYSQL Server.
 
 
 Installation
 ------------
-
+<!---
 A modified version of these plugins come installed by default on Nagios XI.
 
 If you're using Nagios Core, do the following:
@@ -52,7 +53,7 @@ database, this check should almost always return with a warning.
 ```
 service nagios restart
 ```
-
+-->
 
 Changes
 -------
