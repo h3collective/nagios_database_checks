@@ -1,12 +1,7 @@
-# opensource-test
-
-test for opensource repository
-
+check_mysql_collection
 ======================
 
-check_mysql_collection is a set of Nagios plugins for checking the status of a
-
-MYSQL Server.
+check_mysql_collection is a set of Nagios plugins for checking the status of a MYSQL Server.
 
 
 Installation
@@ -34,7 +29,7 @@ mv check_mssql_connection-master/*.py /usr/local/nagios/libexec/
 ```
 4. Set the user 'nagios' as owner
 ```
-chown nagios.nagios /usr/local/nagios/libexec/*.py 
+chown nagios.nagios /usr/local/nagios/libexec/*.py
 ```
 5. Configure the commands.cfg file to add commands using those plugins.
 ```
@@ -59,6 +54,10 @@ Changes
 -------
 
 Changes can be seen at the [CHANGELOG](CHANGELOG.md) file.
+
+Usage
+-----
+
 
 
 Contributors
@@ -97,4 +96,3 @@ Questions?
 If you have questions about these plugins, or encounter problems getting things
 working along the way, your best bet for an answer or quick resolution is to check the
 [Nagios Support Forums](https://support.nagios.com/forum/viewforum.php?f=5).
-
