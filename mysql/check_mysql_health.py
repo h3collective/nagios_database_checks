@@ -20,8 +20,8 @@
 #
 ################### check_mysql_server.py ##############################
 # Version    : 2.1.1
-# Date       : 03/12/2019
-# Maintainer : Nagios Enterprises, LLC
+# Date       : 11/2019
+# Maintainer : Matthew Paczosa
 # License    : GPLv2 (LICENSE.md / https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
 ########################################################################
 
@@ -36,12 +36,13 @@ except:
     import pickle
 from optparse import OptionParser, OptionGroup
 
-BASE_QUERY = "SHOW /*!50000 global */ STATUS LIKE '{}'"
+BASE_QUERY = "SELECT cntr_value FROM sysperfinfo WHERE counter_name='{}' AND instance_name='';"
 INST_QUERY = "SELECT cntr_value FROM sysperfinfo WHERE counter_name='{}' AND instance_name='{}';"
 OBJE_QUERY = "SELECT cntr_value FROM sysperfinfo WHERE counter_name='{}';"
 SLAVE_QUERY = "SHOW SLAVE STATUS"
 DIVI_QUERY = "SELECT cntr_value FROM sysperfinfo WHERE counter_name LIKE '{}%' AND instance_name='{}';"
-MEM_QUERY = "SELECT 100*(1.0-(available_physical_memory_kb/(total_physical_memory_kb*1.0))) FROM sys.dm_os_sys_memory;"
+CON_QUERY = "SHOW /*!50000 global */ STATUS LIKE 'Threads_connected'"
+MEM_QUERY = "SELECT 100*(1.0-(available_physical_memory_kb/(total_physical_memory_kb*1.0))) FROM sys.dm_os_sys_memory;" 
 CPU_QUERY = "SELECT "\
     "record.value('(./Record/SchedulerMonitorEvent/SystemHealth/ProcessUtilization)[1]', 'int') AS [CPU] "\
     "FROM ( "\
@@ -51,220 +52,56 @@ CPU_QUERY = "SELECT "\
             "AND record LIKE N'%<SystemHealth>%'"\
     ") as x;"
 
-LONG_PROC_QUERY = "SELECT"\
-              "COUNT(*)"\
-          "FROM"\
-              "information_schema.processlist"\
-          "WHERE user <> ?"\
-          "AND id <> CONNECTION_ID() "\
-          "AND time > 60"\
-          "AND command <> 'Sleep'"
-
-OPTIMIZE_QUERY = "SHOW TABLE STATUS WHERE Data_free / Data_length > 0.1 AND Data_free > 102400"
-
-#    SHOW /*!50000 global */ STATUS LIKE 'Threads_created'
-#    SHOW /*!50000 global */ STATUS LIKE 'Connections'
-#    if ($self->{delta_connections} > 0) {
-#          100 - ($self->{delta_threads_created} * 100.0 /
-#          $self->{delta_connections});
-#    else:
-#    	threadcache_hitrate_now = 100;
-#    	threadcache_hitrate = 100 - threads_created * 100.0 / connections
-#    	connections_per_sec = delta_connections / delta_timestamp
-
 MODES = {
-
-    'uptime'            : { 'help'      : 'Uptime of service',
-                            'stdout'    : 'database is up since {} mins',
-                            'label'     : 'uptime',
-			    'modifier'  : 60,
-                            'type'      : 'divide',
-                            'query'     : BASE_QUERY.format("Uptime")
-                            },
 
     'connections'       : { 'help'      : 'Number of users connected',
                             'stdout'    : 'Number of users connected is {}',
                             'label'     : 'connections',
-                            'type'      : 'value',
-                            'query'     : BASE_QUERY.format("Threads_connected")
-                            },
-
-    'threads-created'   : { 'help'      : 'Number of threads connected',
-                            'stdout'    : 'Number of threads connected is {}',
-                            'label'     : 'connections',
-                            'type'      : 'value',
-                            'query'     : BASE_QUERY.format("Threads_created")
-                            },
-
-    'threadcache-hitrate': { 'help'      : 'Number of threads connected',
-                            'stdout'    : 'Number of threads connected is {}',
-                            'label'     : 'connections',
                             'type'      : 'standard',
-                            'query'     : BASE_QUERY.format("Threads_created")
+                            'query'     : CON_QUERY 
                             },
 
-    'threads-running'   : { 'help'      : 'Number of threads connected',
-                            'stdout'    : 'Number of threads connected is {}',
-                            'label'     : 'connections',
-                            'type'      : 'standard',
-                            'query'     : BASE_QUERY.format("Threads_running")
+    'memory'            : { 'help'      : 'Used server memory',
+                            'stdout'    : 'Server using {}% of memory',
+                            'label'     : 'memory',
+                            'query'     : MEM_QUERY
                             },
 
-    'threads-cached'   : { 'help'      : 'Number of threads connected',
-                            'stdout'    : 'Number of threads connected is {}',
-                            'label'     : 'connections',
-                            'type'      : 'standard',
-                            'query'     : BASE_QUERY.format("Threads_cached")
+    'cpu'               : { 'help'      : 'Server CPU utilization',
+                            'stdout'    : 'Current CPU utilization is {}%',
+                            'label'    : 'cpu',
+                            'query'     : CPU_QUERY
                             },
 
-    'clients-aborted'   :  {'help'      : 'Clients aborted',
-                            'stdout'    : 'Number of Clients aborted is {}',
-                            'label'     : 'clients',
-                            'type'      : 'standard',
-                            'query'     : BASE_QUERY.format("Aborted_clients")
-                            },
-
-    'connects-aborted'  :  {'help'      : 'Connections aborted',
-                            'stdout'    : 'Number of Connects aborted is {}',
-                            'label'     : 'clients',
-                            'type'      : 'standard',
-                            'query'     : BASE_QUERY.format("Aborted_connects")
-                            },
-
-    'slave'             : { 'help'      : 'Page Life Expectancy',
+    'slave'		: { 'help'      : 'Page Life Expectancy',
                             'query'     : SLAVE_QUERY,
-                            'stdout'    : '{} file {} {}/{}',
+			    'stdout'	: '{} file {} {}/{}',
                             'type'      : 'slave',
+			    'modifier'  : '100'
                             },
-
-    'slavelag'          : { 'help'      : 'Page Life Expectancy',
-                            'stdout'    : 'SLAVE is {} seconds behind',
-                            'label'     : 'lag',
+    
+    'slavelag'		: { 'help'      : 'Page Life Expectancy',
+			    'stdout'	: 'SLAVE is {} seconds behind',
+			    'label'	: 'lag',
                             'query'     : SLAVE_QUERY,
                             'type'      : 'lag',
                             },
-
-    'qcache-hitrate'   : {  'help'      : 'Number of threads connected',
-                            'stdout'    : 'Number of threads connected is {}',
-                            'label'     : 'connections',
-                            'type'      : 'standard',
-                            'query'     : BASE_QUERY.format("qc%")
-                            },
-
-    'qcache-lowmem-prunes': { 'help'      : 'Number of threads connected',
-                             'stdout'    : 'Number of threads connected is {}',
-                             'label'     : 'connections',
-                             'type'      : 'standard',
-                             'query'     : BASE_QUERY.format("Qcache_lowmem_prunes")
-                            },
-
-    'keycache-hitrate': { 'help'      : 'Number of threads connected',
-                             'stdout'    : 'Number of threads connected is {}',
-                             'label'     : 'connections',
-                             'type'      : 'standard',
-                             'query'     : BASE_QUERY.format("Qcache_inserts")
-                            },
-#
-    'bufferpool-hitrate': { 'help'      : 'Number of threads connected',
-                          'stdout'    : 'Number of threads connected is {}',
-                          'label'     : 'connections',
-                          'type'      : 'standard',
-                          'query'     : BASE_QUERY.format("Qcache_lowmem_prunes")
-                         },
-#
-    'bufferpool-wait-free': { 'help'      : 'Number of threads connected',
-                          'stdout'    : 'Number of threads connected is {}',
-                          'label'     : 'connections',
-                          'type'      : 'standard',
-                          'query'     : BASE_QUERY.format("Qcache_lowmem_prunes")
-                         },
-
-     'slow-queries'	: { 'help'      : 'Number of threads connected',
-                            'stdout'    : 'Number of threads connected is {}',
-                            'label'     : 'connections',
-                            'type'      : 'standard',
-                            'query'     : BASE_QUERY.format("Slow_queries")
-                            },
-
-     'log-waits'	: { 'help'      : 'Number of threads connected',
-                            'stdout'    : 'Number of threads connected is {}',
-                            'label'     : 'connections',
-                            'type'      : 'standard',
-                            'query'     : BASE_QUERY.format("Innodb_log_waits")
-                            },
-
-     'tablecache-hitrate': { 'help'     : 'Number of threads connected',
-                            'stdout'    : 'Number of threads connected is {}',
-                            'label'     : 'connections',
-                            'type'      : 'standard',
-                            'query'     : BASE_QUERY.format("Innodb_log_waits")
-                            },
-
-     'table-lock-contention': { 'help'      : 'Number of threads connected',
-                                'stdout'    : 'Number of threads connected is {}',
-                                'label'     : 'connections',
-                                'type'      : 'standard',
-                                'query'     : BASE_QUERY.format("Innodb_log_waits")
-                              },
-
-     'index-usage': 	      { 'help'      : 'Number of threads connected',
-                                'stdout'    : 'Number of threads connected is {}',
-                                'label'     : 'connections',
-                                'type'      : 'standard',
-                                'query'     : BASE_QUERY.format("Handler_read_first")
-                              },
-
-     'tmp-disk-tables':       { 'help'      : 'Number of threads connected',
-                                'stdout'    : 'Number of threads connected is {}',
-                                'label'     : 'connections',
-                                'type'      : 'standard',
-                                'query'     : BASE_QUERY.format("Created_tmp_tables")
-                              },
-
-     'table-fragmentation':   { 'help'      : 'Number of threads connected',
-                                'stdout'    : 'Number of threads connected is {}',
-                                'label'     : 'connections',
-                                'type'      : 'standard',
-                                'query'     : OPTIMIZE_QUERY
-                              },
-
-     'open-files':	      { 'help'      : 'Number of threads connected',
-                                'stdout'    : 'Number of threads connected is {}',
-                                'label'     : 'connections',
-                                'type'      : 'standard',
-                                'query'     : BASE_QUERY.format("open_files")
-                              },
-
-     'long-procs'         :   { 'help'      : 'Number of threads connected',
-                                'stdout'    : 'Number of threads connected is {}',
-                                'label'     : 'connections',
-                                'type'      : 'standard',
-                                'query'     : LONG_PROC_QUERY
-                              },
-#
-     'cluster-ndbd-running':  { 'help'      : 'Number of threads connected',
-                                'stdout'    : 'Number of threads connected is {}',
-                                'label'     : 'connections',
-                                'type'      : 'standard',
-                                'query'     : LONG_PROC_QUERY
-                              },
-
+   
     #~ 'debug'             : { 'help'      : 'Used as a debugging tool.',
                             #~ 'stdout'    : 'Debugging: ',
                             #~ 'label'     : 'debug',
                             #~ 'query'     : DIVI_QUERY.format('Average Wait Time', '_Total'),
-                            #~ 'type'      : 'divide'
+                            #~ 'type'      : 'divide' 
                             #~ },
-
+    
     'time2connect'      : { 'help'      : 'Time to connect to the database.' },
-
+    
     'test'              : { 'help'      : 'Run tests of all queries against the database.' },
 
 }
 
 def return_nagios(options, stdout='', result='', unit='', label=''):
 
-    print(stdout)
     if type(result) is not tuple:
         if is_within_range(options.critical, result):
             prefix = 'CRITICAL: '
@@ -283,11 +120,10 @@ def return_nagios(options, stdout='', result='', unit='', label=''):
         stdout = '{}{}| {}={}{};{};{};;'.format(prefix, stdout, label, strresult, unit, options.warning or '', options.critical or '')
         raise NagiosReturn(stdout, code)
     else:
-        # conditional for slave check
         if result[0] and result [1] == 'Yes':
             status = 'OK:'
             code = 0
-        else:
+        else: 
             status = 'CRITICAL:'
             code = 0
         stdout = stdout.format(status, result[2], result[3], result[4])
@@ -295,7 +131,7 @@ def return_nagios(options, stdout='', result='', unit='', label=''):
 
 class NagiosReturn(Exception):
 
-
+    
     def __init__(self, message, code):
 
         self.message = message
@@ -303,9 +139,9 @@ class NagiosReturn(Exception):
 
 class MYSQLQuery(object):
 
-
+    
     def __init__(self,type, query, options, label='', unit='', stdout='', host='', modifier=1, *args, **kwargs):
-
+        
         self.type = type
         self.query = query
         self.label = label
@@ -314,14 +150,12 @@ class MYSQLQuery(object):
         self.options = options
         self.host = host
         self.modifier = modifier
-
+    
     def run_on_connection(self, connection):
 
         cur = connection.cursor(pymysql.cursors.DictCursor)
         cur.execute(self.query)
-        self.query_result = cur.fetchall()
-        print(self.query_result)
-        print(self.query)
+        self.query_result = cur.fetchone()['Value']
 
     def finish(self):
 
@@ -330,69 +164,31 @@ class MYSQLQuery(object):
                         self.result,
                         self.unit,
                         self.label )
-
+	 
     def calculate_result(self):
 
         self.result = float(self.query_result) * self.modifier
-
+    
     def do(self, connection):
 
         self.run_on_connection(connection)
         self.calculate_result()
         self.finish()
 
-
-class MYSQLVALUEQuery(MYSQLQuery):
-
-
-    def run_on_connection(self, connection):
-
-        cur = connection.cursor(pymysql.cursors.DictCursor)
-        cur.execute(self.query)
-        self.query_result = cur.fetchone()['Value']
-        print(self.query_result)
-        print(self.query)
-
-    def finish(self):
-
-        return_nagios(  self.options,
-                        self.stdout,
-                        self.result,
-                        self.unit,
-                        self.label )
-
-    def calculate_result(self):
-        print(self.query_result)
-        self.result = float(self.query_result) * self.modifier
-
-
-class MULTIQuery(MYSQLQuery) :
-
-
-    def run_on_connection(self, connection):
-
-        cur = connection.cursor(pymysql.cursors.DictCursor)
-        cur.execute(self.query)
-        self.query_result = cur.fetchone()
-
-    def calculate_result(self):
-
-        self.result = float(self.query_result['Seconds_Behind_Master']) * self.modifier
-
 class MYSQLDivideQuery(MYSQLQuery):
 
-
+    
     def __init__(self, *args, **kwargs):
 
         super(MYSQLDivideQuery, self).__init__(*args, **kwargs)
-
+    
     def calculate_result(self):
 
         if self.query_result[1] != 0:
             self.result = (float(self.query_result[0]) / self.query_result[1]) * self.modifier
         else:
             self.result = float(self.query_result[0]) * self.modifier
-
+    
     def run_on_connection(self, connection):
 
         cur = connection.cursor()
@@ -401,17 +197,17 @@ class MYSQLDivideQuery(MYSQLQuery):
 
 class MYSQLDeltaQuery(MYSQLQuery):
 
-
+    
     def make_pickle_name(self):
 
         tmpdir = tempfile.gettempdir()
         tmpname = hash(self.host + self.query)
         self.picklename = '{}/mysql-{}.tmp'.format(tmpdir, tmpname)
-
+    
     def calculate_result(self):
 
         self.make_pickle_name()
-
+        
         try:
             tmpfile = open(self.picklename)
         except IOError:
@@ -425,7 +221,7 @@ class MYSQLDeltaQuery(MYSQLQuery):
                 last_run = { 'time' : None, 'value' : None }
         finally:
             tmpfile.close()
-
+        
         if last_run['time']:
             old_time = last_run['time']
             new_time = time.time()
@@ -434,9 +230,9 @@ class MYSQLDeltaQuery(MYSQLQuery):
             self.result = ((new_val - old_val) / (new_time - old_time)) * self.modifier
         else:
             self.result = None
-
+        
         new_run = { 'time' : time.time(), 'query_result' : self.query_result }
-
+        
         #~ Will throw IOError, leaving it to acquiesce
         tmpfile = open(self.picklename, 'w')
         pickle.dump(new_run, tmpfile)
@@ -455,7 +251,6 @@ class MYSQLSlaveQuery(MYSQLQuery) :
     def calculate_result(self):
 
         self.result =  self.query_result['Slave_IO_Running'],self.query_result['Slave_SQL_Running'],self.query_result['Relay_Master_Log_File'], self.query_result['Read_Master_Log_Pos'], self.query_result['Exec_Master_Log_Pos']
-        print(self.result)
 
 class MYSQLSlaveLagQuery(MYSQLQuery) :
 
@@ -471,42 +266,41 @@ class MYSQLSlaveLagQuery(MYSQLQuery) :
         self.result = float(self.query_result['Seconds_Behind_Master']) * self.modifier
 
 def parse_args():
-
-    usage = "usage: %prog -H hostname -U user -P password --m mode"
+    
+    usage = "usage: %prog -H hostname -U user -P password -T table --m mode"
     parser = OptionParser(usage=usage)
-
+    
     required = OptionGroup(parser, "Required Options")
     required.add_option('-H' , '--hostname', help='Specify MYSQL Server Address', default=None)
     required.add_option('-U' , '--user', help='Specify MYSQL User Name', default=None)
     required.add_option('-P' , '--password', help='Specify MYSQL Password', default=None)
     parser.add_option_group(required)
-
+    
     connection = OptionGroup(parser, "Optional Connection Information")
     connection.add_option('-I', '--instance', help='Specify instance', default=None)
     connection.add_option('-p', '--port', help='Specify port.', default=None)
     connection.add_option('-m', '--mode', help='specify mode', default=None)
-    connection.add_option('-d', '--database', help='specify database', default='information_schema')
-
+   
     parser.add_option_group(connection)
-
+    
     nagios = OptionGroup(parser, "Nagios Plugin Information")
     nagios.add_option('-w', '--warning', help='Specify warning range.', default=None)
     nagios.add_option('-c', '--critical', help='Specify critical range.', default=None)
     parser.add_option_group(nagios)
-
+ 
     mode = OptionGroup(parser, "Mode Options")
     options, _ = parser.parse_args()
-
+ 
     if not options.hostname:
         parser.error('Hostname is a required option.')
     if not options.user:
         parser.error('User is a required option.')
     if not options.password:
         parser.error('Password is a required option.')
-
+    
     if options.instance and options.port:
         parser.error('Cannot specify both instance and port.')
-
+    
     return options
 
 def is_within_range(nagstring, value):
@@ -524,7 +318,7 @@ def is_within_range(nagstring, value):
                 (r'^@{}:{}$'.format(first_float,second_float), lambda y: not((value < float(y.group('first'))) or (value > float(y.group('second')))))]
     for regstr,func in actions:
         res = re.match(regstr,nagstring)
-        if res:
+        if res: 
             return func(res)
     raise Exception('Improper warning/critical format.')
 
@@ -537,37 +331,34 @@ def connect_db(options):
         host += ":" + options.port
     start = time.time()
     try:
-        mssql = pymssql.connect(host = host, user = options.user, password = options.password, database='master')
+        mysql = pymysql.connect(host = host, user = options.user, password = options.password)
     except:
-        print('ERROR - Failed to connect to {}'.format(host))
+        print('Failed to connect to {}'.forma(host))
         sys.exit(2)
+
     total = time.time() - start
     return mysql, total, host
 
 def main():
 
     options = parse_args()
-    mysql, total, host = connect_db(options)
+    mysql, total, host = connect_db(options) 
     if options.mode =='test':
         run_tests(mysql, options, host)
-
+        
     elif not options.mode or options.mode == 'time2connect':
         return_nagios(  options,
                         stdout='Time to connect was {}s',
                         label='time',
                         unit='s',
                         result=total )
-
+                        
     else:
         execute_query(mysql, options, host)
 
 def execute_query(mysql, options, host=''):
 
-    try:
-       sql_query = MODES[options.mode]
-    except:
-       raise Exception("ERROR: '{}' is not a valid mode, please choose a valid mode".format(options.mode))
-
+    sql_query = MODES[options.mode]
     sql_query['options'] = options
     sql_query['host'] = host
     query_type = sql_query.get('type')
@@ -576,11 +367,9 @@ def execute_query(mysql, options, host=''):
     elif query_type == 'divide':
         mysql_query = MYSQLDivideQuery(**sql_query)
     elif query_type == 'lag':
-        mysql_query = MYSQLSlaveLagQuery(**sql_query)
-    elif query_type == 'slave':
+        mysql_query = MYSQLSlaveLagQuery(**sql_query) 
+    elif query_type == 'slave': 
         mysql_query = MYSQLSlaveQuery(**sql_query)
-    elif query_type == 'value':
-        mysql_query = MYSQLVALUEQuery(**sql_query)
     else:
         mysql_query = MYSQLQuery(**sql_query)
     mysql_query.do(mysql)
@@ -602,15 +391,15 @@ def run_tests(mysql, options, host):
             failed += 1
             print('{} failed with: {}'.format(mode, e))
     print('{}/{} tests failed.'.format(failed, total))
-
+    
 if __name__ == '__main__':
 
-    try:
+       try:
         main()
-    except pymssql.OperationalError as e:
+    except pymysql.OperationalError as e:
         print('ERROR - {}'.format(e))
         sys.exit(2)
-    except pymssql.InterfaceError as e:
+    except pymysql.InterfaceError as e:
         print('ERROR - {}'.format(e))
         sys.exit(2)
     except IOError as e:
@@ -624,4 +413,3 @@ if __name__ == '__main__':
         print(type(e))
         print('Caught unexpected error. This could be caused by your sysperfinfo not containing the proper entries for this query, and you may delete this service check.')
         sys.exit(3)
-
