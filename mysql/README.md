@@ -3,10 +3,9 @@ check_mysql_collection
 
 check_mysql_collection is a set of Nagios plugins for checking the status of a MYSQL Server.
 
-
+<!---
 Installation
 ------------
-<!---
 A modified version of these plugins come installed by default on Nagios XI.
 
 If you're using Nagios Core, do the following:
@@ -54,11 +53,10 @@ Changes
 -------
 
 Changes can be seen at the [CHANGELOG](CHANGELOG.md) file.
-
+<!--
 Usage
 -----
-
-
+-->
 
 Contributors
 ------------
