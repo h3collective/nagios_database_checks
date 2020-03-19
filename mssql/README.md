@@ -9,6 +9,17 @@ Contributors
 Please see the file at [CONTRIBUTORS](CONTRIBUTORS.md) for a full list of authors, contributors,
 and maintainers.
 
+Versions
+---------------
+The mssql check were made by a conversion of the following checks from perl to python:
+
+check_mssql
+Reference: https://exchange.nagios.org/directory/Plugins/Databases/SQLServer/check_mssql/details
+
+check_msssql_health
+Reference: https://labs.consol.de/nagios/check_mssql_health/#download
+
+  
 License Notice
 --------------
 
