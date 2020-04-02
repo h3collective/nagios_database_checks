@@ -14,9 +14,9 @@ Versions
 The mssql check were made by a conversion of the following checks from perl to python:
 
 check_mssql
-References: 
-https://exchange.nagios.org/directory/Plugins/Databases/SQLServer/check_mssql/details
-https://github.com/NagiosEnterprises/check_mssql_collection/blob/master/check_mssql_database.py
+References:  
+https://exchange.nagios.org/directory/Plugins/Databases/SQLServer/check_mssql/details  
+https://github.com/NagiosEnterprises/check_mssql_collection/blob/master/check_mssql_database.py  
 
 check_mssql_health
 Reference: https://labs.consol.de/nagios/check_mssql_health/#download
