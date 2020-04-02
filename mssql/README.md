@@ -15,8 +15,9 @@ The mssql check were made by a conversion of the following checks from perl to p
 
 check_mssql
 Reference: https://exchange.nagios.org/directory/Plugins/Databases/SQLServer/check_mssql/details
+           https://github.com/NagiosEnterprises/check_mssql_collection/blob/master/check_mssql_database.py
 
-check_msssql_health
+check_mssql_health
 Reference: https://labs.consol.de/nagios/check_mssql_health/#download
 
   
